@@ -1,6 +1,6 @@
 import { parseL32, unparseL32 } from './src/L32/L32-ast';
 import { parseL3, unparseL3 } from './src/L3/L3-ast';
-import { Dict2App } from "./src/q24";
+import { Dict2App,L32toL3 } from "./src/q24";
 
 const input1 = `(L32 ((dict (x 1) (y 2)) 'x))`;
 const expected1 = `(L3 ((dict '((x . 1) (y . 2))) 'x))`;
@@ -55,4 +55,14 @@ if (parsed5.tag === "Ok") {
     console.log(result5 === expected5 ? "✅ Test 5 passed" : `❌ Test 5 failed: ${result5}`);
 }
 
+
+const input6 = `(L32 ((dict (a (+ 1 2)) (b 3)) 'a))`;
+const expected6 = `(L3 ((dict '((a . (+ 1 2)) (b . 3))) 'a))`;
+
+const parsed6 = parseL32(input5);
+if (parsed6.tag === "Ok") {
+    const transformed6 = L32toL3(parsed6.value);
+    const result6 = unparseL3(transformed6);
+    console.log(result6 === expected6 ? "✅ Test 6 passed" : `❌ Test 6 failed: ${result6}`);
+}
 

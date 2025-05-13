@@ -7,10 +7,8 @@ import * as L32 from './L32/L32-ast';
 import * as L3val from './L3/L3-value';
 import * as L32val from './L32/L32-value';
 
-import { parseL32 } from './L32/L32-ast';
-import { unparseL3 } from './L3/L3-ast';
-
 import { first, isEmpty, isNonEmptyList, List, rest } from './shared/list';
+import { isOk } from './shared/result';
 /*
 Purpose: rewrite all occurrences of DictExp in a program to AppExp.
 Signature: Dict2App (exp)
@@ -19,12 +17,17 @@ Type: Program -> Program
 export const Dict2App  = (exp: L32.Program) : L3.Program =>
     L3.makeProgram(convertSequence(exp.exps));
 
+//Gets a list of L32 exps, and converts each one, in order, into L3 using convertSingle
 const convertSequence = (seq: List<L32.Exp>): List<L3.Exp> =>{
     if(isNonEmptyList<L32.Exp>(seq))
         return [convertSingle(first(seq)), ...convertSequence(rest(seq))];
     return [];
 }
 
+//Gets a single L32 expression
+//   if its define, replaces its value (cexp)
+//   if its CExp, replaces it directly
+//Both are using deepReplace to do it
 const convertSingle = (exp: L32.Exp): L3.Exp => {
     if (L32.isDefineExp(exp)) {
         return L3.makeDefineExp(exp.var, deepReplace(exp.val));
@@ -35,73 +38,12 @@ const convertSingle = (exp: L32.Exp): L3.Exp => {
     }
 };
 
-//Changes a L32 dictExpression into a L3 AppExp
-const convertDict = (exp: L32.DictExp): L3.AppExp =>
-    L3.makeAppExp(L3.makeVarRef("dict"), [L3.makeLitExp(array2LitList(exp.pairs))]);
-
-
-//Takes an array pairs from the dictionary, and replaces them with a list
-const array2LitList = (pairs: L32.DictBinding[]): L3val.CompoundSExp | L3val.EmptySExp => {
-    if(pairs.length === 0)
-        return L3val.makeEmptySExp();
-    else
-        return L3val.makeCompoundSExp(L3val.makeCompoundSExp(pairs[0].var, simpleEval(pairs[0].val)),
-            array2LitList(pairs.slice(1)));
-}
-
-//Helper function to array2LitList
-//If the val in a pair is a simple value - we return its value
-//For all other values for a pair (closure, dict...) we give back a symbol.
-const simpleEval = (exp: L32.CExp): L3val.SExpValue => {
-    if (L32.isNumExp(exp) || L32.isBoolExp(exp) || L32.isStrExp(exp)) {
-        return exp.val;
-    } else {
-        const unparsed = L32.unparseL32(exp);
-        const sym = unparsed.startsWith("'") ? unparsed.slice(1) : unparsed;
-        return L3val.makeSymbolSExp(sym);
-    }
-}
-
-//Takes a L32 litExpression and converts its value into L3 lit expression
-const convertSExp = (val: L32val.SExpValue): L3val.SExpValue => {
-    if (L32val.isEmptySExp(val)) {
-        return L3val.makeEmptySExp();
-    } else if (L32val.isSymbolSExp(val)) {
-        return L3val.makeSymbolSExp(val.val);
-    } else if (L32val.isCompoundSExp(val)) {
-        return L3val.makeCompoundSExp(convertSExp(val.val1), convertSExp(val.val2));
-    } else if (L32val.isDictValue(val)) {
-        return L3val.makeSymbolSExp("dictValue shouldnt be reached"); // This is how you convert a DictValue (array of bindings)
-    } else if (L32val.isClosure(val)){
-        return L3val.makeSymbolSExp("closure shouldnt be reached")
-    } else {
-        return val; // number | boolean | string | PrimOp
-    }
-};
-
-// const replaceCExp = (first: L32.Exp, rest: L32.Exp[]): List<L3.Exp> =>{
-//     if(L32.isCExp(first) && isEmpty(rest))
-//         return deepReplace(first);
-//     else if(L32.isCExp(first)){
-//         deepReplace(first);
-//         convertSequence(rest);
-//     }
-
-//     return [L3.makeStrExp("error in replace CExp")];
-// }
-
-// const replaceDefine = (def: L32.Exp, exps: L32.Exp[]): List<L3.Exp> =>{
-//     if(L32.isDefineExp(def)){
-//         deepReplace(def.val);
-//         convertSequence(exps);
-//     }
-//     return [L3.makeStrExp("error in replace define")];
-// }
-
-
-
-//Takes an exp in L32, and converts it to the same CExp in L3
-//Recursively goes into the CExps contained in if, proc... and converts them too
+//Takes a L32 cexp and replaces it with L3 cexp
+//If its atomic - returns it as it is
+//If its a special form like proc,if,let or app - converts them "deeply"
+//      for example: in If it will also look into the test, then, and alt, and replace whatever is in there
+//If its lit expression: handled differently by convert SExp
+//If its dictExp: handled by convertDict
 const deepReplace = (exp: L32.CExp): L3.CExp => {
     if(L32.isAtomicExp(exp))
         return exp;
@@ -138,14 +80,133 @@ const deepReplace = (exp: L32.CExp): L3.CExp => {
     return L3.makeStrExp("error");
 }
 
+//Takes a L32 litExpression and converts its value into L3 lit expression
+const convertSExp = (val: L32val.SExpValue): L3val.SExpValue => {
+    if (L32val.isEmptySExp(val)) {
+        return L3val.makeEmptySExp();
+    } else if (L32val.isSymbolSExp(val)) {
+        return L3val.makeSymbolSExp(val.val);
+    } else if (L32val.isCompoundSExp(val)) {
+        return L3val.makeCompoundSExp(convertSExp(val.val1), convertSExp(val.val2));
+    } else if (L32val.isDictValue(val)) {
+        return L3val.makeSymbolSExp("dictValue shouldnt be reached"); // This is how you convert a DictValue (array of bindings)
+    } else if (L32val.isClosure(val)){
+        return L3val.makeSymbolSExp("closure shouldnt be reached")
+    } else {
+        return val; // number | boolean | string | PrimOp
+    }
+};
+
+//====================================
+//Converting a L32 dict into L3 app
+
+//Changes a L32 dictExpression into a L3 AppExp
+//By replacing its list of pairs with a L3 type list: (dict (a 2) (b 3)) => (dict '((a 2) (b 3)))
+//Replacing the list is done with array2LitList
+const convertDict = (exp: L32.DictExp): L3.AppExp =>
+    L3.makeAppExp(L3.makeVarRef("dict"), [L3.makeLitExp(array2LitList(exp.pairs))]);
+
+
+//Takes an pairs array from the dictionary, and replaces them with a list
+const array2LitList = (pairs: L32.DictBinding[]): L3val.CompoundSExp | L3val.EmptySExp => {
+    if(pairs.length === 0)
+        return L3val.makeEmptySExp();
+    else
+        return L3val.makeCompoundSExp(L3val.makeCompoundSExp(pairs[0].var, simpleEval(pairs[0].val)),
+            array2LitList(pairs.slice(1)));
+}
+
+//Helper function to array2LitList
+//If the val in a pair is a simple value - we return its value
+//For all other values for a pair (closure, dict...) we give back a L3 list of all the args.
+const simpleEval = (exp: L32.CExp): L3val.SExpValue => {
+    if (L32.isNumExp(exp) || L32.isBoolExp(exp) || L32.isStrExp(exp)) {
+        return exp.val;
+    } else if (L32.isLitExp(exp)) {
+        return convertSExp(exp.val);
+    } else if (L32.isAppExp(exp)) {
+        // Treat the rator and rands as list elements
+        const elems = [exp.rator, ...exp.rands].map(simpleEval);
+        return elems.reduceRight((acc, curr) => L3val.makeCompoundSExp(curr, acc), L3val.makeEmptySExp());
+    }
+    else if(L32.isProcExp(exp)){
+        const elems = [L3val.makeSymbolSExp("lambda"), ...exp.args, ...exp.body].map(simpleEval);
+        return elems.reduceRight((acc, curr) => L3val.makeCompoundSExp(curr, acc), L3val.makeEmptySExp());
+    }
+    else if ( L32.isIfExp(exp) || L32.isLetExp(exp)) {
+        // Any complex expressions get unparsed and wrapped as symbols
+        const unparsed = L32.unparseL32(exp);
+        const sym = unparsed.startsWith("'") ? unparsed.slice(1) : unparsed;
+        return L3val.makeSymbolSExp(sym);
+    } else {
+        // Fallback for anything else
+        const unparsed = L32.unparseL32(exp);
+        return L3val.makeSymbolSExp(unparsed);
+    }
+};
+
+
+
+
+
+
 /*
 Purpose: Transform L32 program to L3
 Signature: L32ToL3(prog)
 Type: Program -> Program
 */
-export const L32toL3 = (prog : L32.Program): L3.Program =>
-    //@TODO
-    L3.makeProgram([]);
+export const L32toL3 = (prog : L32.Program): L3.Program =>{
+    const convertedL32Exps = convertSequence(prog.exps);
+    return L3.makeProgram([...dictSupport(),...convertedL32Exps]);
+}
+
+
+
+const dictSupport = (): L3.Exp[] => {
+    const code = `(L3
+        (define assoc
+            (lambda (key pairs)
+                (if (pair? pairs)
+                    (if (eq? key (car (car pairs)))
+                        (car pairs)
+                        (assoc key (cdr pairs)))
+                    #f)))
+        
+        (define error
+            (lambda (msg)
+                (list 'error msg)))
+
+        (define is-error?
+            (lambda (v)
+                (if (pair? v)
+                    (eq? (car v) 'error)
+                    #f)))
+        
+        (define bind
+            (lambda (v f)
+                (if (is-error? v)
+                    v
+                    (f v))))
+
+        (define dict
+            (lambda (pairs)
+                (lambda (key)
+                    ((lambda (found)
+                        (if (eq? found #f)
+                            (error "key not found")
+                            (cdr found)))
+                     (assoc key pairs)))))
+    )`;
+
+    const result = L3.parseL3(code);
+    if (isOk(result) && L3.isProgram(result.value))
+        return result.value.exps;
+    else
+        throw new Error("Failed to parse dict support code.");
+};
+
+
+
 
 
 

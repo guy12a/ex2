@@ -1,0 +1,45 @@
+(define make-error (lambda () 'error))
+(is-error? (make-error)) 
+
+
+(define member?
+  (lambda (sym lst)
+    (if (eq? lst '())
+        #f
+        (or (eq? sym (car lst))
+            (member? sym (cdr lst))))))
+
+
+(define unique-keys?
+  (lambda (pairs)
+    (let loop ((p pairs) (seen '()))
+      (if (eq? p '())
+          #t                           ; if we passed all and no reps- true
+          (let* ((pr (car p))
+                 (k  (car pr)))        ; key of the pair is car
+            (if (member? k seen)
+                #f                     
+                (loop (cdr p) (cons k seen))))))))
+
+
+(define dict
+  (lambda (lst)
+    (if (and (dict-list? lst)          ; הבדיקה הקודמת
+             (unique-keys? lst))       ; התוספת החדשה
+        lst
+        (make-error))))
+
+(define get
+    (lambda (lst val)
+    
+    (if (not (dict-list? lst))
+        (make-error)
+        (if (null? lst)
+            (make-error)
+            (if (eq? (car(car lst)) val)
+            (cdr (car lst))
+            (get (cdr lst) val)
+            )
+        )
+    ))
+)

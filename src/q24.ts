@@ -6,6 +6,10 @@ import * as L3 from './L3/L3-ast';
 import * as L32 from './L32/L32-ast';
 import * as L3val from './L3/L3-value';
 import * as L32val from './L32/L32-value';
+
+import { parseL32 } from './L32/L32-ast';
+import { unparseL3 } from './L3/L3-ast';
+
 import { first, isEmpty, isNonEmptyList, List, rest } from './shared/list';
 /*
 Purpose: rewrite all occurrences of DictExp in a program to AppExp.
@@ -49,10 +53,13 @@ const array2LitList = (pairs: L32.DictBinding[]): L3val.CompoundSExp | L3val.Emp
 //If the val in a pair is a simple value - we return its value
 //For all other values for a pair (closure, dict...) we give back a symbol.
 const simpleEval = (exp: L32.CExp): L3val.SExpValue => {
-    if(L32.isNumExp(exp) || L32.isBoolExp(exp) || L32.isStrExp(exp))
-        return exp.val
-    else
-        return L3val.makeSymbolSExp(L32.unparseL32(exp));  
+    if (L32.isNumExp(exp) || L32.isBoolExp(exp) || L32.isStrExp(exp)) {
+        return exp.val;
+    } else {
+        const unparsed = L32.unparseL32(exp);
+        const sym = unparsed.startsWith("'") ? unparsed.slice(1) : unparsed;
+        return L3val.makeSymbolSExp(sym);
+    }
 }
 
 //Takes a L32 litExpression and converts its value into L3 lit expression
@@ -119,8 +126,15 @@ const deepReplace = (exp: L32.CExp): L3.CExp => {
             exp.body.map(deepReplace)
         );
     } 
-    else if (L32.isDictExp(exp))
+    else if (L32.isDictExp(exp)){
         return convertDict(exp);  // handles the DictExp -> AppExp conversion
+    }
+    else if(L32.isAppExp(exp)){
+        return L3.makeAppExp(
+            deepReplace(exp.rator),
+            exp.rands.map(deepReplace)
+        );
+    }
     return L3.makeStrExp("error");
 }
 
@@ -132,3 +146,7 @@ Type: Program -> Program
 export const L32toL3 = (prog : L32.Program): L3.Program =>
     //@TODO
     L3.makeProgram([]);
+
+
+
+

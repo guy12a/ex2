@@ -1,6 +1,13 @@
 (define make-error (lambda () 'error))
-(is-error? (make-error)) 
+(define is-error? (lambda (x) (eq? x 'error)))
 
+(define bind
+    (lambda (x f)
+    (if (is-error? x)
+    (make-error)
+    (f x)
+    ))
+)
 
 (define member?
   (lambda (sym lst)
@@ -24,15 +31,15 @@
 
 (define dict
   (lambda (lst)
-    (if (and (dict-list? lst)          ; הבדיקה הקודמת
-             (unique-keys? lst))       ; התוספת החדשה
+    (if (and (dict? lst)          
+             (unique-keys? lst))       
         lst
         (make-error))))
 
 (define get
     (lambda (lst val)
     
-    (if (not (dict-list? lst))
+    (if (not (dict? lst))
         (make-error)
         (if (null? lst)
             (make-error)
@@ -43,3 +50,15 @@
         )
     ))
 )
+
+(define dict?
+    (lambda (lst)
+    (if (list? lst)
+    (let loop ((l lst))
+    (if (null? l)
+    #t
+    (if (pair? (car l))
+    (loop (cdr l))
+    #f))
+    )
+    #f)))

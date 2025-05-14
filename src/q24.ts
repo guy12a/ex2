@@ -104,46 +104,73 @@ const convertSExp = (val: L32val.SExpValue): L3val.SExpValue => {
 //By replacing its list of pairs with a L3 type list: (dict (a 2) (b 3)) => (dict '((a 2) (b 3)))
 //Replacing the list is done with array2LitList
 const convertDict = (exp: L32.DictExp): L3.AppExp =>
-    L3.makeAppExp(L3.makeVarRef("dict"), [L3.makeLitExp(array2LitList(exp.pairs))]);
+    L3.makeAppExp(L3.makeVarRef("dict"), [L3.makeLitExp(pairs2LitList(exp.pairs))]);
 
 
 //Takes an pairs array from the dictionary, and replaces them with a list
-const array2LitList = (pairs: L32.DictBinding[]): L3val.CompoundSExp | L3val.EmptySExp => {
+const pairs2LitList = (pairs: L32.DictBinding[]): L3val.CompoundSExp | L3val.EmptySExp => {
     if(pairs.length === 0)
         return L3val.makeEmptySExp();
     else
         return L3val.makeCompoundSExp(L3val.makeCompoundSExp(pairs[0].var, simpleEval(pairs[0].val)),
-            array2LitList(pairs.slice(1)));
+            pairs2LitList(pairs.slice(1)));
 }
 
 //Helper function to array2LitList
 //If the val in a pair is a simple value - we return its value
-//For all other values for a pair (closure, dict...) we give back a L3 list of all the args.
+//For all other values for a pair (closure, dict...)
+//         we give back an L3's
+//     !!  list of all the args  !!
 const simpleEval = (exp: L32.CExp): L3val.SExpValue => {
     if (L32.isNumExp(exp) || L32.isBoolExp(exp) || L32.isStrExp(exp)) {
         return exp.val;
-    } else if (L32.isLitExp(exp)) {
+    } 
+    else if (L32.isLitExp(exp)) {
         return convertSExp(exp.val);
-    } else if (L32.isAppExp(exp)) {
-        // Treat the rator and rands as list elements
-        const elems = [exp.rator, ...exp.rands].map(simpleEval);
-        return elems.reduceRight((acc, curr) => L3val.makeCompoundSExp(curr, acc), L3val.makeEmptySExp());
+    } 
+    else if (L32.isIfExp(exp)){
+        const elements = [L3val.makeSymbolSExp("if"), simpleEval(exp.test), simpleEval(exp.then), simpleEval(exp.alt)];
+        return array2LitList(elements);
+    }
+    else if(L32.isAppExp(exp)){
+        const elements = [simpleEval(exp.rator), ... exp.rands.map(simpleEval)];
+        return array2LitList(elements);
     }
     else if(L32.isProcExp(exp)){
-        const elems = [L3val.makeSymbolSExp("lambda"), ...exp.args, ...exp.body].map(simpleEval);
-        return elems.reduceRight((acc, curr) => L3val.makeCompoundSExp(curr, acc), L3val.makeEmptySExp());
+        const argSymbols = exp.args.map(v => L3val.makeSymbolSExp(v.var));
+
+        // Convert args to a sublist
+        const argsList = array2LitList(argSymbols);
+
+        const elements = [L3val.makeSymbolSExp("lambda"), argsList, ...exp.body.map(simpleEval)];
+        return array2LitList(elements);
     }
-    else if ( L32.isIfExp(exp) || L32.isLetExp(exp)) {
+    else if(L32.isDictExp(exp)){
+        const pairs = exp.pairs.map(pair => 
+            simpleEval(L32.makeAppExp(L32.makeLitExp(pair.var), [pair.val]))
+        );
+        const elements = [L3val.makeSymbolSExp("dict"), ...pairs];
+        return array2LitList(elements);
+    }
+    else if (L32.isLetExp(exp)) {
         // Any complex expressions get unparsed and wrapped as symbols
         const unparsed = L32.unparseL32(exp);
         const sym = unparsed.startsWith("'") ? unparsed.slice(1) : unparsed;
         return L3val.makeSymbolSExp(sym);
-    } else {
+    } 
+    else {
         // Fallback for anything else
         const unparsed = L32.unparseL32(exp);
         return L3val.makeSymbolSExp(unparsed);
     }
 };
+
+//Takes an array of SExpValues and turns them into a list in L3 style
+const array2LitList = (arr: L3val.SExpValue[]): L3val.CompoundSExp | L3val.EmptySExp =>{
+    if(arr.length===0)
+        return L3val.makeEmptySExp();
+    else
+        return L3val.makeCompoundSExp(arr[0], array2LitList(arr.slice(1)));}
 
 
 

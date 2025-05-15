@@ -65,6 +65,8 @@
      (lambda (f pairs)
        (if (eq? pairs '())
            #t
-           (if (pair? (car pairs))
+           (if (and (pair? (car pairs))
+                    (symbol? (car (car pairs))))
                (f f (cdr pairs))
                #f))))))
+

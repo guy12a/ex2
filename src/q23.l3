@@ -9,24 +9,31 @@
     ))
 )
 
+
 (define member?
   (lambda (sym lst)
-    (if (eq? lst '())
+    (((lambda (rec)
+    (rec sym lst)))
+    (lambda (k left)
+      (if (null? left)
         #f
-        (or (eq? sym (car lst))
-            (member? sym (cdr lst))))))
+        (if (eq? (car left) k)
+        #t
+        (rec k (cdr left)))))
+    )))
 
 
 (define unique-keys?
   (lambda (pairs)
-    (let loop ((p pairs) (seen '()))
-      (if (eq? p '())
-          #t                           ; if we passed all and no reps- true
-          (let* ((pr (car p))
-                 (k  (car pr)))        ; key of the pair is car
-            (if (member? k seen)
-                #f                     
-                (loop (cdr p) (cons k seen))))))))
+    ((lambda (rec)
+     (rec pairs '()))
+    (lambda (lst seen)
+      (if (null? lst)
+        #t 
+        (if (member? (car (car lst)) seen )
+        #f 
+        (rec (cdr lst) (cons (car (car lst)) seen)))
+      )))))
 
 
 (define dict
@@ -37,8 +44,7 @@
         (make-error))))
 
 (define get
-    (lambda (lst val)
-    
+    (lambda (lst val) 
     (if (not (dict? lst))
         (make-error)
         (if (null? lst)
@@ -53,12 +59,13 @@
 
 (define dict?
     (lambda (lst)
-    (if (list? lst)
-    (let loop ((l lst))
-    (if (null? l)
-    #t
-    (if (pair? (car l))
-    (loop (cdr l))
-    #f))
-    )
-    #f)))
+      ((lambda (rec) (rec lst))
+      (lambda (pairs) 
+        (if (eq? pairs '())
+        #t
+        (if (pair? (car pairs))
+        (rec (cdr pairs))
+        #f))
+      )
+      )
+    ))

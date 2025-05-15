@@ -1,75 +1,37 @@
-(define make-error (lambda () 'error))
-(define is-error? (lambda (x) (eq? x 'error)))
+(define make-error
+  (lambda (msg)
+    (cons 'error msg)))
+
+(define is-error?
+  (lambda (x)
+    (and (pair? x)
+         (eq? (car x) 'error))))
 
 (define bind
-    (lambda (x f)
-    (if (is-error? x)
-    (make-error)
-    (f x)
-    ))
-)
-
-
-(define member?
-  (lambda (sym lst)
-    (((lambda (rec)
-    (rec rec sym lst)))
-    (lambda (rec k left)
-      (if (eq? '() left)
-        #f
-        (if (eq? (car left) k)
-        #t
-        (rec rec k (cdr left)))))
-    )))
-
-
-(define unique-keys?
-  (lambda (pairs)
-    ((lambda (rec)
-     (rec rec pairs '()))
-    (lambda (rec lst seen)
-      (if (eq? lst '())
-        #t 
-        (if (member? (car (car lst)) seen )
-        #f 
-        (rec rec (cdr lst) (cons (car (car lst)) seen)))
-      )))))
-
+  (lambda (val f)
+    (if (is-error? val)
+        val
+        (f val))))
 
 (define dict
-  (lambda (lst)
-    (if (and (dict? lst)          
-             (unique-keys? lst))       
-        lst
-        (make-error))))
-
-(define get
-    (lambda (lst val) 
-    (if (not (dict? lst))
-        (make-error)
-        (if (eq? lst '())
-            (make-error)
-            (if (eq? (car(car lst)) val)
-            (cdr (car lst))
-            (get (cdr lst) val)
-            )
-        )
-    ))
-)
+  (lambda (pairs)
+    pairs)) 
 
 (define dict?
-    (lambda (lst)
-      ((lambda (rec) (rec rec lst))
-      (lambda (rec pairs) 
-        (if (eq? pairs '())
-        #t
-        (if (pair? pairs)
-        (if (pair? (car pairs))
-        (rec rec (cdr pairs))
-        #f)
+  (lambda (d)
+    (if (not (pair? d))
         #f
-        )
-        )
-      )
-      )
-    ))
+        (if (eq? d '())
+            #t
+            (if (and (pair? (car d))
+                     (symbol? (car (car d))))
+                ((lambda (rest) (dict? rest)) (cdr d))
+                #f)))))
+
+(define get
+  (lambda (d k)
+    (if (or (not (pair? d)) (eq? d '()))
+        (make-error "Key not found")
+        (if (and (pair? (car d)) (eq? (car (car d)) k))
+            (cdr (car d))
+            ((lambda (rest) (get rest k)) (cdr d))))))

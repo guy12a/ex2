@@ -2,70 +2,69 @@
 (define is-error? (lambda (x) (eq? x 'error)))
 
 (define bind
-    (lambda (x f)
+  (lambda (x f)
     (if (is-error? x)
-    (make-error)
-    (f x)
-    ))
-)
+        (make-error)
+        (f x))))
+
+
 
 
 (define member?
-  (lambda (sym lst)
-    (((lambda (rec)
-    (rec sym lst)))
-    (lambda (k left)
-      (if (null? left)
-        #f
-        (if (eq? (car left) k)
-        #t
-        (rec k (cdr left)))))
-    )))
+  (lambda (sym lst) 
+    ((lambda (f) (f f sym lst))
+     (lambda (f k left)
+       (if (eq? left '())
+           #f
+           (if (eq? (car left) k)
+               #t
+               (f f k (cdr left)))))
+    )
+))
+
+
+
 
 
 (define unique-keys?
   (lambda (pairs)
-    ((lambda (rec)
-     (rec pairs '()))
-    (lambda (lst seen)
-      (if (null? lst)
-        #t 
-        (if (member? (car (car lst)) seen )
-        #f 
-        (rec (cdr lst) (cons (car (car lst)) seen)))
-      )))))
+    ((lambda (f)
+       (f f pairs '()))
+     (lambda (f lst seen)
+       (if (eq? lst '())
+           #t
+           (if (member? (car (car lst)) seen)
+               #f
+               (f f (cdr lst) (cons (car (car lst)) seen))))))))
+
 
 
 (define dict
   (lambda (lst)
-    (if (and (dict? lst)          
-             (unique-keys? lst))       
+    (if (and (dict? lst)
+             (unique-keys? lst))
         lst
         (make-error))))
 
+
+
 (define get
-    (lambda (lst val) 
+  (lambda (lst val)
     (if (not (dict? lst))
         (make-error)
-        (if (null? lst)
+        (if (eq? lst '())
             (make-error)
-            (if (eq? (car(car lst)) val)
-            (cdr (car lst))
-            (get (cdr lst) val)
-            )
-        )
-    ))
-)
+            (if (eq? (car (car lst)) val)
+                (cdr (car lst))
+                (get (cdr lst) val))))))
 
 (define dict?
-    (lambda (lst)
-      ((lambda (rec) (rec lst))
-      (lambda (pairs) 
-        (if (eq? pairs '())
-        #t
-        (if (pair? (car pairs))
-        (rec (cdr pairs))
-        #f))
-      )
-      )
-    ))
+  (lambda (lst)
+    ((lambda (f)
+       (f f lst))
+     (lambda (f pairs)
+       (if (eq? pairs '())
+           #t
+           (if (pair? (car pairs))
+               (f f (cdr pairs))
+               #f))))))

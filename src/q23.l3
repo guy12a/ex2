@@ -1,21 +1,62 @@
-(define make-error
-  (lambda (msg)
-    (cons 'error msg)))
-
-(define is-error?
-  (lambda (x)
-    (and (pair? x)
-         (eq? (car x) 'error))))
+(define make-error (lambda () 'error))
+(define is-error? (lambda (x) (eq? x 'error)))
 
 (define bind
-  (lambda (val f)
-    (if (is-error? val)
-        val
-        (f val))))
+  (lambda (x f)
+    (if (is-error? x)
+        (make-error)
+        (f x))))
+
+
+
+
+(define member?
+  (lambda (sym lst) 
+    ((lambda (f) (f f sym lst))
+     (lambda (f k left)
+       (if (eq? left '())
+           #f
+           (if (eq? (car left) k)
+               #t
+               (f f k (cdr left)))))
+    )
+))
+
+
+
+
+
+(define unique-keys?
+  (lambda (pairs)
+    ((lambda (f)
+       (f f pairs '()))
+     (lambda (f lst seen)
+       (if (eq? lst '())
+           #t
+           (if (member? (car (car lst)) seen)
+               #f
+               (f f (cdr lst) (cons (car (car lst)) seen))))))))
+
+
 
 (define dict
-  (lambda (pairs)
-    pairs)) 
+  (lambda (lst)
+    (if (and (dict? lst)
+             (unique-keys? lst))
+        lst
+        (make-error))))
+
+
+
+(define get
+  (lambda (lst val)
+    (if (not (dict? lst))
+        (make-error)
+        (if (eq? lst '())
+            (make-error)
+            (if (eq? (car (car lst)) val)
+                (cdr (car lst))
+                (get (cdr lst) val))))))
 
 (define dict?
   (lambda (lst)

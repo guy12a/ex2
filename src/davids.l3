@@ -1,0 +1,41 @@
+(define make-error
+  (lambda (msg)
+    (cons 'error (list msg))))
+
+(define is-error?
+  (lambda (x)
+    (if (pair? x)
+        (eq? (car x) 'error)
+        #f)))
+
+(define bind
+  (lambda (x f)
+    (if (is-error? x)
+        x
+        (f x))))
+
+(define dict
+  (lambda (pairs)
+    (if (pair? pairs)
+        (cons 'dict pairs)
+        (make-error pairs))))
+
+(define dict?
+  (lambda (x)
+    (if (pair? x)
+        (eq? (car x) 'dict)
+        #f)))
+
+(define get-loop
+  (lambda (pairs key)
+    (if (not (pair? pairs))
+        (make-error key)
+        (if (and (pair? (car pairs)) (eq? (car (car pairs)) key))
+            (cdr (car pairs))
+            (get-loop (cdr pairs) key)))))
+
+(define get
+  (lambda (d key)
+    (if (not (dict? d))
+        (make-error d)
+        (get-loop (cdr d) key))))

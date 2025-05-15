@@ -13,26 +13,26 @@
 (define member?
   (lambda (sym lst)
     (((lambda (rec)
-    (rec sym lst)))
-    (lambda (k left)
-      (if (null? left)
+    (rec rec sym lst)))
+    (lambda (rec k left)
+      (if (eq? '() left)
         #f
         (if (eq? (car left) k)
         #t
-        (rec k (cdr left)))))
+        (rec rec k (cdr left)))))
     )))
 
 
 (define unique-keys?
   (lambda (pairs)
     ((lambda (rec)
-     (rec pairs '()))
-    (lambda (lst seen)
-      (if (null? lst)
+     (rec rec pairs '()))
+    (lambda (rec lst seen)
+      (if (eq? lst '())
         #t 
         (if (member? (car (car lst)) seen )
         #f 
-        (rec (cdr lst) (cons (car (car lst)) seen)))
+        (rec rec (cdr lst) (cons (car (car lst)) seen)))
       )))))
 
 
@@ -47,7 +47,7 @@
     (lambda (lst val) 
     (if (not (dict? lst))
         (make-error)
-        (if (null? lst)
+        (if (eq? lst '())
             (make-error)
             (if (eq? (car(car lst)) val)
             (cdr (car lst))
@@ -59,13 +59,17 @@
 
 (define dict?
     (lambda (lst)
-      ((lambda (rec) (rec lst))
-      (lambda (pairs) 
+      ((lambda (rec) (rec rec lst))
+      (lambda (rec pairs) 
         (if (eq? pairs '())
         #t
+        (if (pair? pairs)
         (if (pair? (car pairs))
-        (rec (cdr pairs))
-        #f))
+        (rec rec (cdr pairs))
+        #f)
+        #f
+        )
+        )
       )
       )
     ))

@@ -116,6 +116,7 @@ const pairs2LitList = (pairs: L32.DictBinding[]): L3val.CompoundSExp | L3val.Emp
             pairs2LitList(pairs.slice(1)));
 }
 
+
 //Helper function to array2LitList
 //If the val in a pair is a simple value - we return its value
 //For all other values for a pair (closure, dict...)
@@ -128,14 +129,20 @@ const simpleEval = (exp: L32.CExp): L3val.SExpValue => {
     else if (L32.isLitExp(exp)) {
         return convertSExp(exp.val);
     } 
+
+
     else if (L32.isIfExp(exp)){
         const elements = [L3val.makeSymbolSExp("if"), simpleEval(exp.test), simpleEval(exp.then), simpleEval(exp.alt)];
         return array2LitList(elements);
     }
+
+
     else if(L32.isAppExp(exp)){
         const elements = [simpleEval(exp.rator), ... exp.rands.map(simpleEval)];
         return array2LitList(elements);
     }
+
+
     else if(L32.isProcExp(exp)){
         const argSymbols = exp.args.map(v => L3val.makeSymbolSExp(v.var));
 
@@ -145,6 +152,8 @@ const simpleEval = (exp: L32.CExp): L3val.SExpValue => {
         const elements = [L3val.makeSymbolSExp("lambda"), argsList, ...exp.body.map(simpleEval)];
         return array2LitList(elements);
     }
+
+    
     else if(L32.isDictExp(exp)){
         const pairs = exp.pairs.map(pair => 
             simpleEval(L32.makeAppExp(L32.makeLitExp(pair.var), [pair.val]))

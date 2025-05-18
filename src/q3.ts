@@ -29,8 +29,22 @@ const convert = (exp: Exp | Program) : string =>{
         return if2JS(exp);
     else if(isAppExp(exp))
         return app2JS(exp);
-    else if(isPrimOp(exp))
-        return exp.op;
+    else if(isPrimOp(exp)){
+        if (exp.op === "number?")
+            return "((x) => typeof(x) === 'number')";
+        else if (exp.op === "boolean?")
+            return "((x) => typeof(x) === 'boolean')";
+        else if (exp.op === "not")
+            return "((x) => !x)";
+        else if (exp.op === "eq?")
+            return "((x, y) => x === y)";
+        else if (exp.op === "and")
+            return "((x, y) => x && y)";
+        else if (exp.op === "or")
+            return "((x, y) => x || y)";
+        else
+            return exp.op;
+    }
     else if(isDefineExp(exp))
         return define2JS(exp);
     else if(isProgram(exp))
@@ -48,8 +62,11 @@ const convert = (exp: Exp | Program) : string =>{
 const proc2JS = (le: ProcExp): string =>
     "(" + `(${le.args.map(v => v.var).join(",")})` + " => " + map(convert, le.body) + ")"
 
+
+
 const if2JS = (le: IfExp):string =>
     "(" + convert(le.test) + " ? " + convert(le.then) + " : " + convert(le.alt) +")"
+
 
 const app2JS = (le: AppExp): string =>{
     if(isPrimOp(le.rator)){
@@ -74,10 +91,10 @@ const primop2JS = (le:AppExp): string =>{
         else if(le.rator.op === "=")
             return "(" + convert(le.rands[0]) + " === " + convert(le.rands[1]) +")";
         else if(le.rator.op === "number?"){
-            return ("(typeof "+ convert(le.rands[0]) + " === 'number')")
+            return "((x) => typeof(x) === 'number')" + "(" + convert(le.rands[0]) +")";
         }
         else if(le.rator.op === "boolean?"){
-            return ("(typeof "+ convert(le.rands[0]) + " === 'boolean')")
+            return "((x) => typeof(x) === 'number')" + "(" + convert(le.rands[0]) +")";
         }
         else if(le.rator.op === "eq?"){
             return "(" + convert(le.rands[0]) +" === " + convert(le.rands[1]) +")";
